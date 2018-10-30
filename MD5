@@ -1,0 +1,13 @@
+b54f157a5307f16533aa9f218162a52f *DESCRIPTION
+6de498c0473ca82f77b7ce815aa4d5c9 *NAMESPACE
+33b592b460b93a3d3d214958627f0040 *R/tabsort.R
+956e86e7c6aa77eda2be57cda1347466 *R/tbl.R
+ab26b7fad020a4dc50ad20da7e55a99c *README.md
+29d25d13e43d405d2cf22b882cb589ce *man/as_tbl.Rd
+0c88a35250686d172fd7dd2d0070a03f *man/env_tbls.Rd
+9b7f637b8a4a7a7167afb2362c858003 *man/repos_back.Rd
+14c4068edd9fdce8eef31ca36a9caab1 *man/repos_front.Rd
+d426932e94f75e3b22403903ea341014 *man/tabsort.Rd
+496f1fc817e33a080795d99dd79a85a1 *man/tidyselector.Rd
+4d9b771a29f64cd21717a962735599fe *tests/testthat.R
+90c72345f115b55d1390d3c694f7612c *tests/testthat/test-tbl.R
