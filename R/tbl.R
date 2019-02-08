@@ -1,106 +1,97 @@
 
 
-#' as_tbl
+#' as_tbl_data
 #'
-#' See \code{tibble::\link[tibble]{as_tibble}} for details.
+#' Converts data objects to tibbles.
 #'
-#' @param x Data
+#' @param x Data frame or data frame-like input.
 #' @param row_names Logical indicating whether to convert non-null row names
 #'   into the first column.
-#' @rdname as_tbl
-#' @importFrom tibble as_tibble
+#' @rdname as_tbl_data
 #' @examples
 #' ## data with row names
 #' d <- data.frame(x = rnorm(5), y = rnorm(5), row.names = letters[1:5])
 #'
 #' ## convert to tibble
-#' as_tbl(d)
+#' as_tbl_data(d)
 #'
 #' ## convert to tibble and create row_names variable
-#' as_tbl(d, row_names = TRUE)
+#' as_tbl_data(d, row_names = TRUE)
 #'
 #' @export
-as_tbl <- function(x, row_names = FALSE) {
-  isdf <- which(vapply(x, is.data.frame, FUN.VALUE = logical(1),
-    USE.NAMES = FALSE))
-  if (length(isdf) > 0) {
-    for (i in isdf) {
-      x[[i]] <- x[[i]]
-    }
-  }
-  #x[isdf] <- lapply(x[isdf], list)
+as_tbl_data <- function(x, row_names = FALSE) {
+  UseMethod("as_tbl_data")
+}
+
+#' @export
+as_tbl_data.table <- function(x, row_names = FALSE) {
+  df <- as.data.frame(x, stringsAsFactors = FALSE)
+  names(df) <- c(names(dimnames(x)), "n")
+  as_tbl_data.data.frame(df)
+}
+
+#' @export
+as_tbl_data.default <- function(x, row_names = FALSE) {
+  x <- list(x)
+  structure(
+    x,
+    names = names(x),
+    row.names = .set_row_names(length(x[[1]])),
+    class = c("tbl_data", "tbl_df", "tbl", "data.frame")
+  )
+}
+
+#' @export
+as_tbl_data.matrix <- function(x, row_names = FALSE) {
+  x <- as.data.frame(x, stringsAsFactors = FALSE)
+  structure(
+    x,
+    names = colnames(x),
+    row.names = .set_row_names(length(x[[1]])),
+    class = c("tbl_data", "tbl_df", "tbl", "data.frame")
+  )
+}
+
+#' @export
+as_tbl_data.tbl_data <- function(x, row_names = FALSE) {
+  x
+}
+
+#' @export
+as_tbl_data.data.frame <- function(x, row_names = FALSE) {
   if (row_names && !identical(as.character(seq_len(nrow(x))), row.names(x))) {
     x$row_names <- row.names(x)
     x <- x[c(ncol(x), 1:(ncol(x) - 1))]
     row.names(x) <- NULL
   }
-  tibble::as_tibble(x)
+  structure(
+    x,
+    names = names(x),
+    row.names = .set_row_names(length(x[[1]])),
+    class = c("tbl_data", "tbl_df", "tbl", "data.frame")
+  )
 }
 
-
-#' move vars to front
-#'
-#' @param data data frame
-#' @param ... columns to move to front
 #' @export
-#' @examples
-#' ## data with row names
-#' d <- data.frame(x = rnorm(5), y = rnorm(5), row.names = letters[1:5])
-#'
-#' ## move y to front
-#' repos_front(d, y)
-#'
-#' @return Reordered data frame.
-repos_front <- function(data, ...) {
-  re <- rlang::with_env(data, tidyselector(data, ...))
-  as_tbl(cbind(re, data[!names(data) %in% names(re)]))
+as_tbl_data.default <- function(x, row_names = FALSE) {
+  x <- list(x)
+  structure(
+    x,
+    names = names(x),
+    row.names = .set_row_names(length(x[[1]])),
+    class = c("tbl_data", "tbl_df", "tbl", "data.frame")
+  )
 }
 
-#' move vars to back
-#'
-#' @param data data frame
-#' @param ... columns to move to back
 #' @export
-#' @examples
-#' ## data with row names
-#' d <- data.frame(x = rnorm(5), y = rnorm(5), row.names = letters[1:5])
-#'
-#' ## move x to back
-#' repos_back(d, x)
-#'
-#' @return Reordered data frame.
-repos_back <- function(data, ...) {
-  re <- rlang::with_env(data, tidyselector(data, ...))
-  as_tbl(cbind(data[!names(data) %in% names(re)], re))
+as_tbl_data.list <- function(x, row_names = FALSE) {
+  structure(
+    x,
+    names = names(x),
+    row.names = .set_row_names(length(x[[1]])),
+    class = c("tbl_data", "tbl_df", "tbl", "data.frame")
+  )
 }
-
-#' tidyselector
-#'
-#' Select columns using tidy eval
-#'
-#' @param data data frame
-#' @param ... vars to select
-#' @return Data with selected columns.
-#' @examples
-#' ## data with row names
-#' d <- data.frame(x = rnorm(5), y = rnorm(5), row.names = letters[1:5])
-#'
-#' ## select only x
-#' tidyselector(d, x)
-#'
-#' @export
-tidyselector <- function(data, ...) {
-  vars <- tryCatch(tidyselect::vars_select(names(data), ...),
-    error = function(e) return(NULL))
-  #if (is.null(vars)) return(data)
-  if (length(vars) > 0) {
-    data <- data[vars]
-  }
-  data
-}
-
-
-
 
 #' Convert all data frames in environment into tibbles
 #'
@@ -125,10 +116,39 @@ env_tbls <- function(env = globalenv(), row_names = TRUE) {
   for (i in seq_along(o)) {
     x <- get(o[i], envir = env)
     if (is.data.frame(x)) {
-      x <- as_tbl(x, row_names = row_names)
+      x <- as_tbl_data(x, row_names = row_names)
       message("Converting ", o[i], " into tbl_df")
       assign(o[i], x, envir = env)
     }
   }
   message("Done!")
+}
+
+
+#' tbl data
+#'
+#' Create a tibble data frame
+#'
+#' @param ... A data frame, vector, or list of values of equal or single-value
+#'   length–similar to \link[base]{data.frame}.
+#' @return An object of class \code{c("tbl_data", "tbl_df", "tbl", "data.frame")}
+#' @export
+tbl_data <- function(...) {
+  x <- list(...)
+  if (length(x) == 1L && is.data.frame(x[[1]])) {
+    x <- x[[1]]
+  }
+  lens <- lengths(x)
+  if (n_uq(lens) == 2L && 1L %in% lens) {
+    x[lens == 1L] <- lapply(x[lens == 1L], rep, max(lens))
+  }
+  nms <- names(x)
+  no_nms <- !nzchar(nms)
+  nms[no_nms] <- paste0("x", seq_len(sum(no_nms)))
+  structure(
+    x,
+    names = nms,
+    row.names = .set_row_names(length(x[[1]])),
+    class = c("tbl_data", "tbl_df", "tbl", "data.frame")
+  )
 }

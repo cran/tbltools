@@ -31,17 +31,21 @@
 #'
 #' @export
 tabsort <- function(.data, ..., prop = TRUE, na_omit = TRUE, sort = TRUE) {
-  vars <- names(rlang::enquos(...))
-  if (any(vars == "")) {
-    vars2 <- rlang::enquos(...)
-    vars2 <- sapply(vars2[vars == ""], function(.x) encodeString(as.character(.x)[2]))
-    vars[vars == ""] <- vars2
-  }
+  UseMethod("tabsort")
+}
+
+#' @export
+tabsort.default <- function(.data, ..., prop = TRUE, na_omit = TRUE, sort = TRUE) {
+  ## get names from dots
+  vars <- names(pretty_dots(...))
+
+  ## validate
   if (!is.logical(prop)) {
     stop("'prop' should be logical, indicating whether to return proportions. ",
       "If you supplied a vector with the name 'prop' please rename to ",
       "something else", call. = FALSE)
   }
+
   ## if only named objects are supplied
   if (missing(.data) && length(vars) > 0) {
     .data <- data.frame(..., stringsAsFactors = FALSE)
@@ -53,35 +57,10 @@ tabsort <- function(.data, ..., prop = TRUE, na_omit = TRUE, sort = TRUE) {
     ## if unnamed atomic vector & one or more named objects are supplied
   } else if (!is.recursive(.data) && length(vars) > 0) {
 
-    ## if .data is already a name, then find a simple alphanumeric name to use
-    ## otherwise just name it .data
-    if (".data" %in% vars) {
-      assignname <- NULL
-      i <- 0
-      ltrs <- letters
-      while (is.null(assignname) || assignname %in% vars) {
-        i <- i + 1
-        if (i > length(ltrs)) {
-          i <- 1
-          if (any(grepl("[A-Z]", ltrs))) {
-            ltrs <- paste0(tolower(ltrs), i)
-          } else if (any(grepl("[a-z]", ltrs)) & any(grepl("[0-9]", ltrs))) {
-            ltrs <- paste0(LETTERS, i)
-          } else {
-            ltrs <- toupper(ltrs)
-          }
-        }
-        assignname <- ltrs[i]
-      }
-    } else {
-      assignname <- ".data"
-    }
-    ## if "n" in vars, rename with dot
-    if ("n" %in% vars) {
-      warning("variable n renamed to .n", call. = FALSE)
-      vars[vars == "n"] <- ".n"
-    }
-    .data <- structure(list(.data, ...), class = "list", names = c(assignname, vars))
+    ## rename .data using expression text
+    assignname <- deparse(substitute(.data))
+    .data <- list(.data, ...)
+    names(.data) <- c(assignname, vars)
 
     ## if single unnamed vector is supplied
   } else if (!is.recursive(.data)) {
@@ -89,20 +68,25 @@ tabsort <- function(.data, ..., prop = TRUE, na_omit = TRUE, sort = TRUE) {
 
     ## otherwise use tidy selection of any supplied var names
   } else {
-    .data <- tidyselector(.data, ...)
-    if ("n" %in% names(.data)) {
-      warning("variable n renamed to .n", call. = FALSE)
-      names(.data)[names(.data) == "n"] <- ".n"
-    }
-    if ("prop" %in% names(.data)) {
-      warning("variable prop renamed to .prop", call. = FALSE)
-      names(.data)[names(.data) == "prop"] <- ".prop"
-    }
+    .data <- select_data(.data, ...)
   }
   if (na_omit) {
-    .data <- tfse::na_omit(.data)
+    if (is.data.frame(.data)) {
+      .data <- na_omit_data.frame(.data)
+    } else {
+      .data <- na_omit_list(.data)
+    }
   }
-  x <- as_tbl(do.call("table", .data))
+  ## check/fix names
+  if ("n" %in% names(.data)) {
+    warning("variable n renamed to .n", call. = FALSE)
+    names(.data)[names(.data) == "n"] <- ".n"
+  }
+  if ("prop" %in% names(.data)) {
+    warning("variable prop renamed to .prop", call. = FALSE)
+    names(.data)[names(.data) == "prop"] <- ".prop"
+  }
+  x <- as_tbl_data(do.call("table", as.list(.data)))
   if (prop) {
     x$prop <- x$n / sum(x$n, na.rm = TRUE)
   }
@@ -117,6 +101,6 @@ tabsort <- function(.data, ..., prop = TRUE, na_omit = TRUE, sort = TRUE) {
 #' @rdname tabsort
 #' @export
 ntbl <- function(.data, ...) {
-  .data <- rlang::with_env(.data, tidyselector(.data, ...))
-  as_tbl(table(.data))
+  .data <- select_data(.data, ...)
+  as_tbl_data(table(.data))
 }
